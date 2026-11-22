@@ -9,12 +9,23 @@ class RaceSimulator:
     Simulates an F1 race strategy by calculating the time added
     from tire degradation and pit stops.
     """
+    race_laps = 60
+    num_stints = 3
+    pit_stop_time = 25
 
     def __init__(self):
         """
         Initialize the simulator and store tire data.
         """
-        pass
+        self.tires=pd.DataFrame(
+            {
+                "Tmin": [0, 1, 2],
+                "Tmax": [10, 10, 10],
+                "alpha": [1 / 2, 1 / 4, 1 / 16],
+                "beta": [15, 25, 55],
+            },
+            index=["Soft", "Medium", "Hard"],
+        )
 
 
     def tire_time(self, age, Tmin, Tmax, alpha, beta):
@@ -31,7 +42,7 @@ class RaceSimulator:
         Returns:
             Tire time added for the given tire age.
         """
-        pass
+        return Tmin + (Tmax - Tmin) / (1 + np.exp(-alpha * (age - beta)))
 
 
     def simulate(self, stint_lengths, tire_types):
