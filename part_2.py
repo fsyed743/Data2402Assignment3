@@ -9,9 +9,9 @@ class RaceSimulator:
     Simulates an F1 race strategy by calculating the time added
     from tire degradation and pit stops.
     """
-    race_laps = 60
-    num_stints = 3
-    pit_stop_time = 25
+    RACE_LAPS = 60
+    NUM_STINTS = 3
+    PIT_STOP_TIME = 25
 
     def __init__(self):
         """
@@ -140,7 +140,8 @@ class RaceSimulator:
         Returns:
             Total time added from tire degradation and pit stops.
         """
-        pass
+        race = self.build_race(stint_lengths, tire_types)
+        return float(race["total_time"].sum())
 
 
 def plot_tires(simulator):
@@ -153,7 +154,28 @@ def plot_tires(simulator):
     Returns:
         None.
     """
-    pass
+    tires = simulator.tires
+
+    # ages as a column (61) and parameters as rows (3) so NumPy broadcasting computes every tire's curve at once (61 x 3)
+    ages = np.arange(simulator.RACE_LAPS + 1)
+    times = simulator.tire_time(
+        ages[:, np.newaxis],
+        tires["Tmin"].to_numpy(),
+        tires["Tmax"].to_numpy(),
+        tires["alpha"].to_numpy(),
+        tires["beta"].to_numpy(),
+    )
+
+    plt.figure(figsize=(9, 6))
+    plt.plot(ages, times)
+    plt.legend(tires.index)
+    plt.xlabel("Tire age (laps)")
+    plt.ylabel("Time added (s)")
+    plt.title("Tire degradation")
+    plt.grid(True)
+    plt.show()
+
+
 
 
 def find_best_strategy(simulator):
@@ -161,10 +183,41 @@ def find_best_strategy(simulator):
     Test all valid race strategies and find the one
     with the minimum total time added.
 
+    Pit stop laps come from combinations (first stop before the second).
+    Tire choices come from combinations_with_replacement. 
+    The order of the tires does not change the total time (each stint's time depends only on  its own tire and length,
+    and every stint length order is tried), so trying each set of tires once is enough.
+
     Parameters:
         simulator: A RaceSimulator object.
 
     Returns:
-        The strategy with the lowest total tire and pit time.
+       A dictionary with the best strategy's pit_laps, stint_lengths, tire_types, and total_time.
     """
-    pass
+
+    laps = simulator.RACE_LAPS
+    tire_names = list(simulator.tires.index)
+
+    tire_options = list(combinations_with_replacement(tire_names, simulator.NUM_STINTS))
+    pit_options = list(combinations(range(2, laps + 1), 2))
+
+    best = None
+
+    for tire_types in tire_options:
+        # must use at least 2 different tire types
+        if len(set(tire_types)) < 2:
+            continue
+
+        for first_pit, second_pit in pit_options:
+            stint_lengths = (first_pit - 1, second_pit - first_pit, laps - second_pit + 1)
+            total = simulator.simulate(stint_lengths, tire_types)
+
+            if best is None or total < best["total_time"]:
+                best = {
+                    "pit_laps": (first_pit, second_pit),
+                    "stint_lengths": stint_lengths,
+                    "tire_types": tire_types,
+                    "total_time": total,
+                }
+
+    return best
